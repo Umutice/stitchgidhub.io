@@ -1,0 +1,2206 @@
+<!doctype html>
+<html lang="ru" class="h-full">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>THREADMUSE - Atelier Studio</title>
+    <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
+    <script src="/_sdk/element_sdk.js"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&amp;family=DM+Sans:wght@300;400;500;600&amp;display=swap"
+      rel="stylesheet"
+    />
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              ink: "#1a1a1a",
+              cream: "#f5f0e8",
+              clay: "#c4a882",
+              rust: "#a0522d",
+              smoke: "#2d2d2d",
+            },
+          },
+        },
+      };
+    </script>
+    <style>
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      .font-display {
+        font-family: "Playfair Display", Georgia, serif;
+      }
+      .font-body {
+        font-family: "DM Sans", sans-serif;
+      }
+
+      .app-wrapper {
+        height: 100%;
+        width: 100%;
+        overflow-y: auto;
+        overflow-x: hidden;
+      }
+
+      /* Diagonal stripe pattern */
+      .stripe-bg {
+        background-image: repeating-linear-gradient(
+          -45deg,
+          transparent,
+          transparent 10px,
+          rgba(196, 168, 130, 0.06) 10px,
+          rgba(196, 168, 130, 0.06) 20px
+        );
+      }
+
+      /* Canvas */
+      #sketch-canvas {
+        cursor: crosshair;
+        touch-action: none;
+      }
+
+      /* Animations */
+      @keyframes fadeUp {
+        from {
+          opacity: 0;
+          transform: translateY(30px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      @keyframes slideIn {
+        from {
+          opacity: 0;
+          transform: translateX(-40px);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(0);
+        }
+      }
+      .anim-fade {
+        animation: fadeUp 0.8s ease both;
+      }
+      .anim-slide {
+        animation: slideIn 0.7s ease both;
+      }
+
+      /* Scrollbar */
+      .app-wrapper::-webkit-scrollbar {
+        width: 6px;
+      }
+      .app-wrapper::-webkit-scrollbar-track {
+        background: #1a1a1a;
+      }
+      .app-wrapper::-webkit-scrollbar-thumb {
+        background: #c4a882;
+        border-radius: 3px;
+      }
+
+      /* Cart badge */
+      .cart-badge {
+        position: absolute;
+        top: -6px;
+        right: -6px;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        font-size: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      /* Toast */
+      .toast {
+        position: fixed;
+        bottom: 30px;
+        right: 30px;
+        padding: 14px 24px;
+        border-radius: 8px;
+        z-index: 9999;
+        transform: translateY(100px);
+        opacity: 0;
+        transition: all 0.4s ease;
+        pointer-events: none;
+      }
+      .toast.show {
+        transform: translateY(0);
+        opacity: 1;
+      }
+
+      /* Modal overlay */
+      .modal-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 1000;
+        display: none;
+        align-items: center;
+        justify-content: center;
+      }
+      .modal-overlay.active {
+        display: flex;
+      }
+
+      /* Nav mobile */
+      .mobile-menu {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s ease;
+      }
+      .mobile-menu.open {
+        max-height: 500px;
+      }
+
+      /* Sketch thumbnails */
+      .sketch-thumb {
+        transition:
+          transform 0.3s ease,
+          box-shadow 0.3s ease;
+      }
+      .sketch-thumb:hover {
+        transform: scale(1.05);
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+      }
+    </style>
+    <style>
+      body {
+        box-sizing: border-box;
+      }
+    </style>
+    <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
+  </head>
+  <body class="h-full">
+    <div
+      class="app-wrapper stripe-bg"
+      id="app-wrapper"
+      style="background-color: #1a1a1a; color: #f5f0e8"
+    >
+      <!-- TOAST -->
+      <div
+        class="toast font-body font-medium"
+        id="toast"
+        style="background: #c4a882; color: #1a1a1a"
+      ></div>
+      <!-- NAV -->
+      <nav
+        id="main-nav"
+        style="
+          background: rgba(26, 26, 26, 0.95);
+          backdrop-filter: blur(12px);
+          border-bottom: 1px solid rgba(196, 168, 130, 0.2);
+        "
+        class="fixed top-0 left-0 w-full z-50"
+      >
+        <div
+          class="max-w-7xl mx-auto px-4 sm:px-8 flex items-center justify-between h-16"
+        >
+          <a href="#hero" class="flex items-center gap-3 group">
+            <svg
+              class="w-8 h-8 transition-transform group-hover:scale-110"
+              viewbox="0 0 40 40"
+              fill="none"
+            >
+              <defs>
+                <lineargradient
+                  id="logoGrad"
+                  x1="0%"
+                  y1="0%"
+                  x2="100%"
+                  y2="100%"
+                >
+                  <stop
+                    offset="0%"
+                    style="stop-color: #c4a882; stop-opacity: 1"
+                  />
+                  <stop
+                    offset="100%"
+                    style="stop-color: #a0522d; stop-opacity: 1"
+                  />
+                </lineargradient>
+              </defs>
+              <circle
+                cx="20"
+                cy="20"
+                r="19"
+                stroke="url(#logoGrad)"
+                stroke-width="1.5"
+              />
+              <path
+                d="M12 14 L20 26 L28 14 M14 20 L26 20"
+                stroke="url(#logoGrad)"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                fill="none"
+              />
+              <circle cx="20" cy="12" r="2" fill="url(#logoGrad)" /></svg
+            ><span
+              class="font-display text-lg font-bold tracking-wider"
+              id="nav-brand"
+              style="color: #c4a882"
+              >STITCH</span
+            >
+          </a>
+          <div
+            class="hidden md:flex items-center gap-8 font-body text-sm tracking-wide"
+          >
+            <a href="#fabrics" class="hover:opacity-100 opacity-70 transition"
+              >Ткани</a
+            >
+            <a href="#threads" class="hover:opacity-100 opacity-70 transition"
+              >Нити</a
+            >
+            <a href="#sketches" class="hover:opacity-100 opacity-70 transition"
+              >Эскизы</a
+            >
+            <a
+              href="#canvas-section"
+              class="hover:opacity-100 opacity-70 transition"
+              >Рисовать</a
+            >
+            <a href="#contact" class="hover:opacity-100 opacity-70 transition"
+              >Контакты</a
+            >
+            <button onclick="openCart()" class="relative" aria-label="Корзина">
+              <i
+                data-lucide="shopping-bag"
+                style="width: 20px; height: 20px; color: #c4a882"
+              ></i>
+              <span
+                class="cart-badge"
+                id="cart-count"
+                style="background: #a0522d; color: #f5f0e8; display: none"
+                >0</span
+              >
+            </button>
+          </div>
+          <button class="md:hidden" onclick="toggleMobile()" aria-label="Меню">
+            <i
+              data-lucide="menu"
+              style="width: 24px; height: 24px; color: #c4a882"
+            ></i>
+          </button>
+        </div>
+        <div
+          class="mobile-menu md:hidden font-body text-sm"
+          id="mobile-menu"
+          style="background: rgba(26, 26, 26, 0.98)"
+        >
+          <div class="flex flex-col px-6 py-4 gap-4">
+            <a
+              href="#fabrics"
+              onclick="closeMobile()"
+              class="opacity-70 hover:opacity-100"
+              >Ткани</a
+            >
+            <a
+              href="#threads"
+              onclick="closeMobile()"
+              class="opacity-70 hover:opacity-100"
+              >Нити</a
+            >
+            <a
+              href="#sketches"
+              onclick="closeMobile()"
+              class="opacity-70 hover:opacity-100"
+              >Эскизы</a
+            >
+            <a
+              href="#canvas-section"
+              onclick="closeMobile()"
+              class="opacity-70 hover:opacity-100"
+              >Рисовать</a
+            >
+            <a
+              href="#contact"
+              onclick="closeMobile()"
+              class="opacity-70 hover:opacity-100"
+              >Контакты</a
+            >
+            <button
+              onclick="
+                openCart();
+                closeMobile();
+              "
+              class="text-left opacity-70 hover:opacity-100"
+            >
+              Корзина (<span id="cart-count-mobile">0</span>)
+            </button>
+          </div>
+        </div>
+      </nav>
+      <!-- HERO -->
+      <header
+        id="hero"
+        class="relative w-full flex items-center justify-center"
+        style="min-height: 600px; padding-top: 80px; padding-bottom: 60px"
+      >
+        <div
+          class="absolute inset-0"
+          style="
+            background:
+              radial-gradient(
+                ellipse at 30% 40%,
+                rgba(196, 168, 130, 0.15) 0%,
+                transparent 60%
+              ),
+              radial-gradient(
+                ellipse at 70% 80%,
+                rgba(160, 82, 45, 0.1) 0%,
+                transparent 50%
+              );
+          "
+        ></div>
+        <!-- Decorative sewing needle SVG -->
+        <svg
+          class="absolute opacity-5"
+          style="right: 5%; top: 15%; width: 300px; height: 300px"
+          viewbox="0 0 200 200"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="0.5"
+        >
+          <line
+            x1="20"
+            y1="180"
+            x2="180"
+            y2="20"
+            stroke="#c4a882"
+            stroke-width="1"
+          />
+          <circle cx="180" cy="20" r="6" stroke="#c4a882" stroke-width="1" />
+          <path
+            d="M20 180 Q60 160 40 120 Q20 80 60 60"
+            stroke="#c4a882"
+            stroke-width="0.7"
+            fill="none"
+            stroke-dasharray="4 4"
+          />
+        </svg>
+        <div class="relative z-10 text-center px-6 max-w-4xl mx-auto anim-fade">
+          <p
+            class="font-body text-xs tracking-[0.4em] uppercase mb-6"
+            id="hero-sub"
+            style="color: #a0522d"
+          >
+            Textile design studio
+          </p>
+          <h1
+            class="font-display text-5xl sm:text-7xl md:text-8xl font-900 leading-none mb-8"
+            id="hero-title"
+            style="color: #f5f0e8"
+          >
+            Fabric Your<br /><span style="color: #c4a882; font-style: italic"
+              >Vision</span
+            >
+          </h1>
+          <p
+            class="font-body text-base sm:text-lg opacity-60 max-w-xl mx-auto mb-10"
+            id="about-text"
+          >
+            Мы создаём уникальные текстильные решения, сочетая традиции ручного
+            шитья с современным дизайном. Каждое изделие — произведение
+            искусства.
+          </p>
+          <div class="flex gap-4 justify-center flex-wrap">
+            <a
+              href="#fabrics"
+              class="font-body text-sm px-8 py-3 tracking-wide transition hover:scale-105"
+              style="background: #c4a882; color: #1a1a1a; border-radius: 2px"
+              >Каталог тканей</a
+            >
+            <a
+              href="#canvas-section"
+              class="font-body text-sm px-8 py-3 tracking-wide border transition hover:scale-105"
+              style="border-color: #c4a882; color: #c4a882; border-radius: 2px"
+              >Нарисовать эскиз</a
+            >
+          </div>
+        </div>
+      </header>
+      <!-- FABRICS -->
+      <section id="fabrics" class="w-full py-20 px-4 sm:px-8">
+        <div class="max-w-7xl mx-auto">
+          <div class="mb-14 anim-slide">
+            <p
+              class="font-body text-xs tracking-[0.3em] uppercase mb-2"
+              style="color: #a0522d"
+            >
+              01 / Каталог
+            </p>
+            <h2
+              class="font-display text-4xl sm:text-5xl font-bold"
+              style="color: #f5f0e8"
+            >
+              Ткани
+            </h2>
+          </div>
+          <div
+            class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
+            id="fabric-grid"
+          ></div>
+        </div>
+      </section>
+      <!-- TOOLS -->
+      <section
+        id="tools"
+        class="w-full py-20 px-4 sm:px-8"
+        style="background: rgba(45, 45, 45, 0.5)"
+      >
+        <div class="max-w-7xl mx-auto">
+          <div class="mb-14 anim-slide">
+            <p
+              class="font-body text-xs tracking-[0.3em] uppercase mb-2"
+              style="color: #a0522d"
+            >
+              02 / Инструменты
+            </p>
+            <h2
+              class="font-display text-4xl sm:text-5xl font-bold"
+              style="color: #f5f0e8"
+            >
+              Инструменты
+            </h2>
+          </div>
+          <div
+            class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"
+            id="tools-grid"
+          ></div>
+        </div>
+      </section>
+      <!-- THREADS -->
+      <section
+        id="threads"
+        class="w-full py-20 px-4 sm:px-8"
+        style="background: rgba(45, 45, 45, 0.5)"
+      >
+        <div class="max-w-7xl mx-auto">
+          <div class="mb-14 anim-slide">
+            <p
+              class="font-body text-xs tracking-[0.3em] uppercase mb-2"
+              style="color: #a0522d"
+            >
+              02 / Материалы
+            </p>
+            <h2
+              class="font-display text-4xl sm:text-5xl font-bold"
+              style="color: #f5f0e8"
+            >
+              Нити и пряжа
+            </h2>
+            <p class="font-body text-sm opacity-50 mt-3">
+              Премиальные нити от лучших мировых производителей
+            </p>
+          </div>
+          <div
+            class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5"
+            id="threads-grid"
+          ></div>
+        </div>
+      </section>
+      <!-- SKETCHES -->
+      <section id="sketches" class="w-full py-20 px-4 sm:px-8">
+        <div class="max-w-7xl mx-auto">
+          <div class="mb-14 anim-slide">
+            <p
+              class="font-body text-xs tracking-[0.3em] uppercase mb-2"
+              style="color: #a0522d"
+            >
+              03 / Эскизы
+            </p>
+            <h2
+              class="font-display text-4xl sm:text-5xl font-bold"
+              style="color: #f5f0e8"
+            >
+              Наши эскизы
+            </h2>
+            <p class="font-body text-sm opacity-50 mt-3">
+              Коллекции для всей семьи
+            </p>
+          </div>
+          <div class="mb-8">
+            <div class="flex flex-wrap gap-3 mb-6">
+              <button
+                onclick="filterSketches('all')"
+                class="sketch-filter font-body text-sm px-5 py-2 rounded transition font-medium"
+                data-filter="all"
+                style="background: #c4a882; color: #1a1a1a"
+              >
+                Все
+              </button>
+              <button
+                onclick="filterSketches('women')"
+                class="sketch-filter font-body text-sm px-5 py-2 rounded border transition font-medium"
+                data-filter="women"
+                style="border-color: #c4a882; color: #c4a882"
+              >
+                Женщинам
+              </button>
+              <button
+                onclick="filterSketches('men')"
+                class="sketch-filter font-body text-sm px-5 py-2 rounded border transition font-medium"
+                data-filter="men"
+                style="border-color: #c4a882; color: #c4a882"
+              >
+                Мужчинам
+              </button>
+              <button
+                onclick="filterSketches('kids')"
+                class="sketch-filter font-body text-sm px-5 py-2 rounded border transition font-medium"
+                data-filter="kids"
+                style="border-color: #c4a882; color: #c4a882"
+              >
+                Детям
+              </button>
+            </div>
+          </div>
+          <div
+            class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4"
+            id="sketch-gallery"
+          ></div>
+        </div>
+      </section>
+      <!-- DRAWING CANVAS -->
+      <section
+        id="canvas-section"
+        class="w-full py-20 px-4 sm:px-8"
+        style="background: rgba(45, 45, 45, 0.5)"
+      >
+        <div class="max-w-4xl mx-auto">
+          <div class="mb-10 anim-slide">
+            <p
+              class="font-body text-xs tracking-[0.3em] uppercase mb-2"
+              style="color: #a0522d"
+            >
+              04 / Творчество
+            </p>
+            <h2
+              class="font-display text-4xl sm:text-5xl font-bold mb-4"
+              style="color: #f5f0e8"
+            >
+              Нарисуйте свой дизайн
+            </h2>
+            <p class="font-body opacity-50">
+              Используйте холст ниже, чтобы создать свой уникальный эскиз
+            </p>
+          </div>
+          <!-- Canvas toolbar -->
+          <div class="flex flex-wrap gap-3 mb-4 items-center">
+            <label class="font-body text-xs opacity-60" for="brush-color"
+              >Цвет:</label
+            >
+            <input
+              type="color"
+              id="brush-color"
+              value="#c4a882"
+              class="w-8 h-8 rounded cursor-pointer"
+              style="background: transparent; border: 1px solid #c4a882"
+            />
+            <label class="font-body text-xs opacity-60" for="brush-size"
+              >Размер:</label
+            >
+            <input
+              type="range"
+              id="brush-size"
+              min="1"
+              max="30"
+              value="3"
+              class="w-24"
+              style="accent-color: #c4a882"
+            />
+            <button
+              onclick="setTool('pen')"
+              id="btn-pen"
+              class="font-body text-xs px-3 py-1 rounded transition"
+              style="background: #c4a882; color: #1a1a1a"
+            >
+              Кисть
+            </button>
+            <button
+              onclick="setTool('eraser')"
+              id="btn-eraser"
+              class="font-body text-xs px-3 py-1 rounded border transition"
+              style="border-color: #c4a882; color: #c4a882"
+            >
+              Ластик
+            </button>
+            <button
+              onclick="clearCanvas()"
+              class="font-body text-xs px-3 py-1 rounded border transition"
+              style="border-color: #a0522d; color: #a0522d"
+            >
+              Очистить
+            </button>
+            <button
+              onclick="downloadCanvas()"
+              class="font-body text-xs px-3 py-1 rounded transition"
+              style="background: #a0522d; color: #f5f0e8"
+            >
+              Скачать
+            </button>
+          </div>
+          <canvas
+            id="sketch-canvas"
+            width="800"
+            height="500"
+            class="w-full rounded"
+            style="background: #f5f0e8; max-height: 500px"
+          ></canvas>
+        </div>
+      </section>
+      <!-- CONTACT / ADDRESS / PAYMENT -->
+      <section id="contact" class="w-full py-20 px-4 sm:px-8">
+        <div class="max-w-7xl mx-auto">
+          <div class="mb-14 anim-slide">
+            <p
+              class="font-body text-xs tracking-[0.3em] uppercase mb-2"
+              style="color: #a0522d"
+            >
+              05 / Контакты
+            </p>
+            <h2
+              class="font-display text-4xl sm:text-5xl font-bold"
+              style="color: #f5f0e8"
+            >
+              Свяжитесь с нами
+            </h2>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <!-- Address -->
+            <div
+              class="p-8 rounded"
+              style="
+                background: #2d2d2d;
+                border: 1px solid rgba(196, 168, 130, 0.15);
+              "
+            >
+              <i
+                data-lucide="map-pin"
+                style="width: 28px; height: 28px; color: #c4a882"
+                class="mb-4"
+              ></i>
+              <h3 class="font-display text-xl font-bold mb-3">Адрес</h3>
+              <p
+                class="font-body text-sm opacity-60 leading-relaxed"
+                id="address-display"
+              >
+                г. Москва, ул. Тверская, д. 15, оф. 301
+              </p>
+              <p class="font-body text-sm opacity-40 mt-2">
+                Пн-Сб: 10:00 — 20:00
+              </p>
+            </div>
+            <!-- Contact -->
+            <div
+              class="p-8 rounded"
+              style="
+                background: #2d2d2d;
+                border: 1px solid rgba(196, 168, 130, 0.15);
+              "
+            >
+              <i
+                data-lucide="phone"
+                style="width: 28px; height: 28px; color: #c4a882"
+                class="mb-4"
+              ></i>
+              <h3 class="font-display text-xl font-bold mb-3">Контакты</h3>
+              <p class="font-body text-sm opacity-60" id="phone-display">
+                +7 (495) 123-45-67
+              </p>
+              <p class="font-body text-sm opacity-60 mt-1" id="email-display">
+                hello@atelier-noir.ru
+              </p>
+            </div>
+            <!-- Payment -->
+            <div
+              class="p-8 rounded"
+              style="
+                background: #2d2d2d;
+                border: 1px solid rgba(196, 168, 130, 0.15);
+              "
+            >
+              <i
+                data-lucide="credit-card"
+                style="width: 28px; height: 28px; color: #c4a882"
+                class="mb-4"
+              ></i>
+              <h3 class="font-display text-xl font-bold mb-3">Оплата</h3>
+              <p class="font-body text-sm opacity-60 leading-relaxed">
+                Visa / MasterCard / МИР<br />
+                Наличные при получении<br />
+                Безналичный расчёт
+              </p>
+              <p class="font-body text-xs opacity-30 mt-3">
+                Демо — оплата не обрабатывается
+              </p>
+            </div>
+          </div>
+          <!-- Delivery info -->
+          <div
+            class="mt-8 p-8 rounded"
+            style="
+              background: #2d2d2d;
+              border: 1px solid rgba(196, 168, 130, 0.15);
+            "
+          >
+            <div class="flex items-start gap-4">
+              <i
+                data-lucide="truck"
+                style="
+                  width: 28px;
+                  height: 28px;
+                  color: #c4a882;
+                  flex-shrink: 0;
+                "
+                class="mt-1"
+              ></i>
+              <div>
+                <h3 class="font-display text-xl font-bold mb-3">Доставка</h3>
+                <p class="font-body text-sm opacity-60 leading-relaxed">
+                  Курьерская доставка по Москве — от 300 руб. Доставка по России
+                  — СДЭК, Почта России. Самовывоз из нашего ателье бесплатно.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      <!-- FOOTER -->
+      <footer
+        class="w-full py-12 px-4 sm:px-8"
+        style="
+          background: #111;
+          border-top: 1px solid rgba(196, 168, 130, 0.15);
+        "
+      >
+        <div class="max-w-7xl mx-auto">
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-8 mb-10">
+            <div>
+              <p
+                class="font-display text-lg font-bold mb-4"
+                id="footer-brand"
+                style="color: #c4a882"
+              >
+                STITCH
+              </p>
+              <p class="font-body text-xs opacity-40 leading-relaxed">
+                Уникальные текстильные решения ручной работы. С 2018 года.
+              </p>
+            </div>
+            <div>
+              <div class="flex gap-2">
+                <p
+                  class="font-body text-xs tracking-widest uppercase mb-4 opacity-60"
+                >
+                  Навигация
+                </p>
+                <div class="flex flex-col gap-2 font-body text-sm opacity-40">
+                  <a href="#fabrics" class="hover:opacity-80 transition"
+                    >Ткани</a
+                  >
+                  <a href="#threads" class="hover:opacity-80 transition"
+                    >Нити</a
+                  >
+                  <a href="#sketches" class="hover:opacity-80 transition"
+                    >Эскизы</a
+                  >
+                  <a href="#canvas-section" class="hover:opacity-80 transition"
+                    >Рисовать</a
+                  >
+                </div>
+              </div>
+              <div>
+                <p
+                  class="font-body text-xs tracking-widest uppercase mb-4 opacity-60"
+                >
+                  Контакты
+                </p>
+                <div class="flex flex-col gap-2 font-body text-sm opacity-40">
+                  <span id="footer-phone">+7 (495) 123-45-67</span>
+                  <span id="footer-email">hello@atelier-noir.ru</span>
+                  <span id="footer-address">г. Москва, ул. Тверская, 15</span>
+                </div>
+              </div>
+              <div>
+                <p
+                  class="font-body text-xs tracking-widest uppercase mb-4 opacity-60"
+                >
+                  Соцсети
+                </p>
+                <div class="flex gap-4">
+                  <a
+                    href="#"
+                    class="opacity-40 hover:opacity-100 transition"
+                    aria-label="Instagram"
+                    ><i
+                      data-lucide="instagram"
+                      style="width: 20px; height: 20px"
+                    ></i
+                  ></a>
+                  <a
+                    href="#"
+                    class="opacity-40 hover:opacity-100 transition"
+                    aria-label="Facebook"
+                    ><i
+                      data-lucide="facebook"
+                      style="width: 20px; height: 20px"
+                    ></i
+                  ></a>
+                  <a
+                    href="#"
+                    class="opacity-40 hover:opacity-100 transition"
+                    aria-label="Twitter"
+                    ><i
+                      data-lucide="twitter"
+                      style="width: 20px; height: 20px"
+                    ></i
+                  ></a>
+                  <a
+                    href="#"
+                    class="opacity-40 hover:opacity-100 transition"
+                    aria-label="Youtube"
+                    ><i
+                      data-lucide="youtube"
+                      style="width: 20px; height: 20px"
+                    ></i
+                  ></a>
+                </div>
+              </div>
+            </div>
+            <div
+              class="border-t pt-6 flex flex-col sm:flex-row justify-between items-center gap-4"
+              style="border-color: rgba(196, 168, 130, 0.1)"
+            >
+              <p class="font-body text-xs opacity-30">
+                2024 Atelier Noir. Все права защищены.
+              </p>
+              <p class="font-body text-xs opacity-30">
+                Политика конфиденциальности
+              </p>
+            </div>
+          </div>
+        </div>
+      </footer>
+      <!-- CART MODAL -->
+      <div class="modal-overlay" id="cart-modal">
+        <div
+          class="absolute inset-0"
+          style="background: rgba(0, 0, 0, 0.7)"
+          onclick="closeCart()"
+        ></div>
+        <div
+          class="relative w-full max-w-lg mx-4 max-h-[80%] overflow-y-auto rounded-lg p-8"
+          style="
+            background: #2d2d2d;
+            border: 1px solid rgba(196, 168, 130, 0.2);
+          "
+        >
+          <div class="flex justify-between items-center mb-6">
+            <h3 class="font-display text-2xl font-bold" style="color: #c4a882">
+              Корзина
+            </h3>
+            <button onclick="closeCart()" aria-label="Закрыть">
+              <i
+                data-lucide="x"
+                style="width: 24px; height: 24px; color: #f5f0e8"
+              ></i>
+            </button>
+          </div>
+          <div id="cart-items" class="mb-6"></div>
+          <div
+            id="cart-empty"
+            class="font-body text-sm opacity-40 text-center py-8"
+          >
+            Корзина пуста
+          </div>
+          <div
+            id="cart-footer"
+            class="border-t pt-4"
+            style="border-color: rgba(196, 168, 130, 0.15); display: none"
+          >
+            <div class="flex justify-between mb-4">
+              <span class="font-body font-semibold">Итого:</span>
+              <span
+                class="font-display text-xl font-bold"
+                id="cart-total"
+                style="color: #c4a882"
+                >0 руб.</span
+              >
+            </div>
+            <div class="flex gap-3">
+              <button
+                onclick="checkout('pickup')"
+                class="flex-1 font-body text-sm py-3 rounded transition hover:scale-105"
+                style="background: #c4a882; color: #1a1a1a"
+              >
+                Самовывоз
+              </button>
+              <button
+                onclick="checkout('delivery')"
+                class="flex-1 font-body text-sm py-3 rounded border transition hover:scale-105"
+                style="border-color: #a0522d; color: #a0522d"
+              >
+                Доставка
+              </button>
+            </div>
+            <p class="font-body text-xs opacity-30 mt-3 text-center">
+              Демо — заказ не оформляется
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- end app-wrapper -->
+    <script>
+      // ====== DATA ======
+      const fabrics = [
+        {
+          id: "f1",
+          name: "Кремовый муслин",
+          desc: "Тонкая хлопковая ткань, идеальна для летних платьев. Мягкая, воздушная, с матовым блеском.",
+          price: 2850,
+          unit: "м",
+          img: "krem.webp?w=400&h=300&fit=crop",
+        },
+        {
+          id: "f2",
+          name: "Угольный лён",
+          desc: "Натуральный лён глубокого серого оттенка. Идеален для костюмов и платьев с гладкой драпировкой.",
+          price: 5100,
+          unit: "м",
+          img: "ugol.jpg?w=400&h=300&fit=crop",
+        },
+        {
+          id: "f3",
+          name: "Пудровый шёлк",
+          desc: "Премиальный натуральный шёлк нежного розового оттенка. Мягкий шелест и естественный блеск.",
+          price: 11500,
+          unit: "м",
+          img: "https://ir.ozone.ru/s3/multimedia-c/6546702240.jpg?w=400&h=300&fit=crop",
+        },
+        {
+          id: "f4",
+          name: "Терракотовый хлопок",
+          desc: "Плотный органический хлопок теплого оранжево-коричневого цвета. Идеален для осенних коллекций.",
+          price: 3950,
+          unit: "м",
+          img: "https://ryazan.welltex.ru/photos/cc/57/tkan-muslin-130grm2-100hb-132sm-terrakotovyj-171-bombacio.jpg?w=400&h=300&fit=crop",
+        },
+        {
+          id: "f5",
+          name: "Оливковый шерстяной трикотаж",
+          desc: "Мягкая шерсть мериноса цвета оливы. Не колется, прекрасно держит форму.",
+          price: 7650,
+          unit: "м",
+          img: "https://cs2.livemaster.ru/storage/ec/80/2cebbf080aaa8e4074bc498523cx--materialy-dlya-tvorchestva-trikotazh-vyazannyj-s-sherstyu-hak.jpg?w=400&h=300&fit=crop",
+        },
+        {
+          id: "f6",
+          name: "Изумрудный вельвет",
+          desc: "Вискозный вельвет насыщенного зелёного цвета. Роскошный ворс, мягкий на ощупь.",
+          price: 6950,
+          unit: "м",
+          img: "https://avatars.mds.yandex.net/get-mpic/11472827/2a0000018dadafc19393b9734c3a8ff7d0b0/orig?w=400&h=300&fit=crop",
+        },
+        {
+          id: "f7",
+          name: "Кокосовый лён-коттон",
+          desc: "Смесь льна и хлопка цвета спелого кокоса. Легкий, дышащий, устойчив к усадке.",
+          price: 4420,
+          unit: "м",
+          img: "https://спб.мирткани.рф/upload/iblock/fb0/fb0eafcc5874caa9532f737fe7ff3494.jpg?w=400&h=300&fit=crop",
+        },
+        {
+          id: "f8",
+          name: "Ночной индиго",
+          desc: "Традиционный индиго глубокого синего цвета. Натуральный краситель, со временем приобретает уникальный вид.",
+          price: 5750,
+          unit: "м",
+          img: "https://cs2.livemaster.ru/storage/14/d7/62f94887c1626a895d7780acd5ex--materialy-dlya-tvorchestva-kanvas-temnyj-sinij-indigo-16-unts.jpg?w=400&h=300&fit=crop",
+        },
+        {
+          id: "f9",
+          name: "Лавандовый батист",
+          desc: "Прозрачный хлопковый батист нежного фиолетового оттенка. Идеален для воздушных платьев.",
+          price: 3700,
+          unit: "м",
+          img: "bat.jpg?w=400&h=300&fit=crop",
+        },
+        {
+          id: "f10",
+          name: "Угольный японский хлопок",
+          desc: "Органический хлопок премиум-качества из Окаямы, почти чёрный оттенок. Очень мягкий и долговечный.",
+          price: 7400,
+          unit: "м",
+          img: "yap.htm?w=400&h=300&fit=crop",
+        },
+        {
+          id: "f11",
+          name: "Медный тафта",
+          desc: "Шёлковая тафта с эффектом переливов. Цвет от тёмного бронзового к золотому при движении.",
+          price: 12400,
+          unit: "м",
+          img: "med.htm?w=400&h=300&fit=crop",
+        },
+        {
+          id: "f12",
+          name: "Минеральный серый вельвет",
+          desc: "Мягкий вельвет холодного серого тона с металлическим блеском. Современный и элегантный.",
+          price: 6450,
+          unit: "м",
+          img: "vlv0009.htm?w=400&h=300&fit=crop",
+        },
+        {
+          id: "f13",
+          name: "Морской бархат",
+          desc: "Нежно-голубой бархат с глубокой фактурой. Идеален для вечерних платьев и аксессуаров.",
+          price: 8150,
+          unit: "м",
+          img: "bar.htm?w=400&h=300&fit=crop",
+        },
+        {
+          id: "f14",
+          name: "Персиковый шифон",
+          desc: "Воздушный шифон теплого персикового оттенка. Легко драпируется, идеален для туник и платьев.",
+          price: 3350,
+          unit: "м",
+          img: "shifon-p.htm?w=400&h=300&fit=crop",
+        },
+        {
+          id: "f15",
+          name: "Угольно-серый лён",
+          desc: "Толстый лён практичного серого цвета для практичной одежды и аксессуаров.",
+          price: 4650,
+          unit: "м",
+          img: "len.ugl.webp?w=400&h=300&fit=crop",
+        },
+        {
+          id: "f16",
+          name: "Золотой парча",
+          desc: "Декоративная парча с вышивкой в виде узоров. Идеальна для праздничных нарядов.",
+          price: 14850,
+          unit: "м",
+          img: "par.jpg?w=400&h=300&fit=crop",
+        },
+        {
+          id: "f17",
+          name: "Песочный лён",
+          desc: "Светлый натуральный лён теплого песочного оттенка. Прочный и дышащий.",
+          price: 4250,
+          unit: "м",
+          img: "https://images.unsplash.com/photo-1620799140408-edc92f2b50f5?w=400&h=300&fit=crop",
+        },
+        {
+          id: "f18",
+          name: "Пурпурный креп",
+          desc: "Элегантный креп насыщенного пурпурного цвета. Красиво держит силуэт.",
+          price: 6200,
+          unit: "м",
+          img: "https://images.unsplash.com/photo-1575528169272-e54f8e5e0c31?w=400&h=300&fit=crop",
+        },
+        {
+          id: "f19",
+          name: "Белый муслин",
+          desc: "Чистый белый муслин с лёгкой структурой. Универсален для любого стиля.",
+          price: 2630,
+          unit: "м",
+          img: "https://images.unsplash.com/photo-1589111282539-e1831574d84d?w=400&h=300&fit=crop",
+        },
+        {
+          id: "f20",
+          name: "Маслинный хлопок",
+          desc: "Плотный органический хлопок тёмного оливково-зелёного цвета. Практичный и красивый.",
+          price: 3470,
+          unit: "м",
+          img: "https://images.unsplash.com/photo-1577720643272-265f434b3b0b?w=400&h=300&fit=crop",
+        },
+        {
+          id: "f21",
+          name: "Циановый шёлк",
+          desc: "Ярко-голубой натуральный шёлк с глубоким цветом. Для смелых дизайнов.",
+          price: 11950,
+          unit: "м",
+          img: "https://images.unsplash.com/photo-1589111282539-e1831574d84d?w=400&h=300&fit=crop",
+        },
+        {
+          id: "f22",
+          name: "Коричневый льняной трикотаж",
+          desc: "Мягкий трикотаж из льна в тёплом коричневом оттенке.",
+          price: 5260,
+          unit: "м",
+          img: "https://images.unsplash.com/photo-1576633587778-71f8e6d6f25e?w=400&h=300&fit=crop",
+        },
+        {
+          id: "f23",
+          name: "Серебристый органза",
+          desc: "Прозрачная органза с серебристым оттенком. Идеальна для вечерних нарядов.",
+          price: 9100,
+          unit: "м",
+          img: "https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?w=400&h=300&fit=crop",
+        },
+        {
+          id: "f24",
+          name: "Бордовый жаккард",
+          desc: "Плотный жаккард бордового цвета с тонким узором. Элегантен и практичен.",
+          price: 7050,
+          unit: "м",
+          img: "https://images.unsplash.com/photo-1615572849122-1f8a75fb2aa0?w=400&h=300&fit=crop",
+        },
+      ];
+
+      const threads = [
+        {
+          id: "t1",
+          name: "Нить хлопковая белая",
+          desc: "100% натуральный хлопок, универсальная",
+          price: 85,
+          unit: "шпуля",
+          color: "#ffffff",
+        },
+        {
+          id: "t2",
+          name: "Нить шёлковая кремовая",
+          desc: "Премиум шёлк, для деликатных тканей",
+          price: 250,
+          unit: "шпуля",
+          color: "#fffdd0",
+        },
+        {
+          id: "t3",
+          name: "Нить полиэстер чёрная",
+          desc: "Прочная синтетическая нить, универсальная",
+          price: 70,
+          unit: "шпуля",
+          color: "#0a0a0a",
+        },
+        {
+          id: "t4",
+          name: "Нить шерстяная бежевая",
+          desc: "Мягкая шерстяная нить для вязания и вышивки",
+          price: 180,
+          unit: "шпуля",
+          color: "#f5deb3",
+        },
+        {
+          id: "t5",
+          name: "Нить люрекс золотая",
+          desc: "Блестящая люрекс нить для украшения",
+          price: 320,
+          unit: "шпуля",
+          color: "#ffd700",
+        },
+        {
+          id: "t6",
+          name: "Нить вискоза терракот",
+          desc: "Блестящая вискоза для вышивки",
+          price: 140,
+          unit: "шпуля",
+          color: "#cd5c5c",
+        },
+        {
+          id: "t7",
+          name: "Нить льняная натуральная",
+          desc: "Натуральный лён, для прочных швов",
+          price: 130,
+          unit: "шпуля",
+          color: "#e6d5c3",
+        },
+        {
+          id: "t8",
+          name: "Нить полиэстер серебристая",
+          desc: "Синтетическая нить с серебристым блеском",
+          price: 95,
+          unit: "шпуля",
+          color: "#e8e8e8",
+        },
+        {
+          id: "t9",
+          name: "Нить люрекс серебристая",
+          desc: "Сияющая люрекс нить для праздничных нарядов",
+          price: 320,
+          unit: "шпуля",
+          color: "#c0c0c0",
+        },
+        {
+          id: "t10",
+          name: "Нить мулине красная",
+          desc: "Мулине для вышивки в яркий красный цвет",
+          price: 110,
+          unit: "шпуля",
+          color: "#c41e3a",
+        },
+        {
+          id: "t11",
+          name: "Нить хлопковая индиго",
+          desc: "Натуральный хлопок в традиционном индиго",
+          price: 95,
+          unit: "шпуля",
+          color: "#0a1429",
+        },
+        {
+          id: "t12",
+          name: "Нить вискоза пудровая",
+          desc: "Нежная вискоза в пудровом розовом оттенке",
+          price: 140,
+          unit: "шпуля",
+          color: "#ffc0cb",
+        },
+        {
+          id: "t13",
+          name: "Нить полиэстер зелёная",
+          desc: "Яркая зелёная полиэстеровая нить",
+          price: 75,
+          unit: "шпуля",
+          color: "#228b22",
+        },
+        {
+          id: "t14",
+          name: "Нить шёлковая коричневая",
+          desc: "Премиум шёлк в насыщенном коричневом",
+          price: 250,
+          unit: "шпуля",
+          color: "#8b4513",
+        },
+        {
+          id: "t15",
+          name: "Нить люрекс фуксия",
+          desc: "Блестящая люрекс в насыщенном фуксия",
+          price: 330,
+          unit: "шпуля",
+          color: "#ff1493",
+        },
+        {
+          id: "t16",
+          name: "Нить хлопковая серая",
+          desc: "Натуральный хлопок в нейтральном сером",
+          price: 85,
+          unit: "шпуля",
+          color: "#808080",
+        },
+        {
+          id: "t17",
+          name: "Нить вискоза оливковая",
+          desc: "Блестящая вискоза в оливковом оттенке",
+          price: 145,
+          unit: "шпуля",
+          color: "#808000",
+        },
+        {
+          id: "t18",
+          name: "Нить полиэстер фиолетовая",
+          desc: "Синтетическая нить в глубоком фиолете",
+          price: 75,
+          unit: "шпуля",
+          color: "#9370db",
+        },
+        {
+          id: "t19",
+          name: "Нить люрекс радуга",
+          desc: "Переливающаяся люрекс нить",
+          price: 350,
+          unit: "шпуля",
+          color: "#ff6347",
+        },
+        {
+          id: "t20",
+          name: "Нить хлопковая терракот",
+          desc: "Натуральный хлопок в тёплом терракотовом",
+          price: 90,
+          unit: "шпуля",
+          color: "#a0522d",
+        },
+      ];
+
+      const tools = [
+        {
+          id: "t1",
+          name: "Ножницы портновские",
+          desc: "Закалённая сталь, 25 см, профессиональные",
+          price: 2900,
+          icon: "scissors",
+        },
+        {
+          id: "t2",
+          name: "Набор игл",
+          desc: "150 шт., все размеры, в красивом футляре",
+          price: 850,
+          icon: "pin",
+        },
+        {
+          id: "t3",
+          name: "Сантиметровая лента",
+          desc: "300 см, дублированная, двусторонняя",
+          price: 280,
+          icon: "ruler",
+        },
+        {
+          id: "t4",
+          name: "Мелок портновский",
+          desc: "Набор 12 цветов, стойкий, водорастворимый",
+          price: 620,
+          icon: "pen-tool",
+        },
+        {
+          id: "t5",
+          name: "Распарыватель",
+          desc: "Нержавеющая сталь, эргономичная ручка",
+          price: 550,
+          icon: "slash",
+        },
+        {
+          id: "t6",
+          name: "Булавки швейные",
+          desc: "500 шт., с перламутровой головкой",
+          price: 680,
+          icon: "map-pin",
+        },
+        {
+          id: "t7",
+          name: "Напёрсток",
+          desc: "Латунь, регулируемый, размер М-L",
+          price: 620,
+          icon: "circle",
+        },
+        {
+          id: "t8",
+          name: "Линейка для пэчворка",
+          desc: "60x15 см, прозрачная, с разметкой",
+          price: 1500,
+          icon: "square",
+        },
+        {
+          id: "t9",
+          name: "Ролик для раскроя",
+          desc: "Профессиональный, диаметр 5 см",
+          price: 1800,
+          icon: "circle",
+        },
+        {
+          id: "t10",
+          name: "Коврик для раскроя",
+          desc: "Самозаживающийся, 60x90 см, с разметкой",
+          price: 3200,
+          icon: "square",
+        },
+        {
+          id: "t11",
+          name: "Манекен портновский",
+          desc: "Регулируемый, на подставке, размер S-M",
+          price: 5900,
+          icon: "circle",
+        },
+        {
+          id: "t12",
+          name: "Манекен детский",
+          desc: "Пропорциональный, на штативе, высота 60 см",
+          price: 4200,
+          icon: "circle",
+        },
+        {
+          id: "t13",
+          name: "Линейка французская",
+          desc: "Нейлон, гибкая, 150 см, для кривых линий",
+          price: 450,
+          icon: "ruler",
+        },
+        {
+          id: "t14",
+          name: "Металлические лекала",
+          desc: "Набор 20 шт., для проектирования",
+          price: 2100,
+          icon: "square",
+        },
+        {
+          id: "t15",
+          name: "Калька тонкая",
+          desc: "Рулон 1м, для копирования выкроек",
+          price: 380,
+          icon: "file",
+        },
+        {
+          id: "t16",
+          name: "Калька копировальная",
+          desc: "Чёрная, для переснятия деталей выкроек",
+          price: 420,
+          icon: "file",
+        },
+        {
+          id: "t17",
+          name: "Нож раскройный фигурный",
+          desc: "Лезвие волна, система зубьев",
+          price: 1200,
+          icon: "scissors",
+        },
+        {
+          id: "t18",
+          name: "Иглы машинные",
+          desc: "Набор 30 шт., разные номера",
+          price: 520,
+          icon: "pin",
+        },
+        {
+          id: "t19",
+          name: "Катушка для ниток",
+          desc: "Деревянная, 50 шт. в наборе",
+          price: 890,
+          icon: "circle",
+        },
+        {
+          id: "t20",
+          name: "Органайзер для ниток",
+          desc: "На 60 катушек, с ящиками",
+          price: 2400,
+          icon: "square",
+        },
+        {
+          id: "t21",
+          name: "Игольница магнитная",
+          desc: "Нержавеющая сталь, настольная",
+          price: 680,
+          icon: "circle",
+        },
+        {
+          id: "t22",
+          name: "Напёрстки силиконовые",
+          desc: "Набор 5 шт., разные размеры",
+          price: 320,
+          icon: "circle",
+        },
+        {
+          id: "t23",
+          name: "Щётка для ворса",
+          desc: "Натуральный конский волос, для уборки ткани",
+          price: 540,
+          icon: "pen-tool",
+        },
+        {
+          id: "t24",
+          name: "Прижимная лапка универсальная",
+          desc: "Для швейной машины, стандартный размер",
+          price: 450,
+          icon: "circle",
+        },
+        {
+          id: "t25",
+          name: "Лапка для вышивки",
+          desc: "Для швейной машины, открытая конструкция",
+          price: 620,
+          icon: "circle",
+        },
+        {
+          id: "t26",
+          name: "Лапка для молнии",
+          desc: "Для швейной машины, стандартная",
+          price: 380,
+          icon: "circle",
+        },
+        {
+          id: "t27",
+          name: "Лапка для кантов",
+          desc: "Для швейной машины, 3 мм",
+          price: 540,
+          icon: "circle",
+        },
+        {
+          id: "t28",
+          name: "Набор шпулек",
+          desc: "10 шт., пластиковые, универсальные",
+          price: 280,
+          icon: "circle",
+        },
+        {
+          id: "t29",
+          name: "Масло для швейной машины",
+          desc: "100 мл, качественное, для смазки",
+          price: 320,
+          icon: "droplet",
+        },
+        {
+          id: "t30",
+          name: "Щётка для чистки машины",
+          desc: "Мягкая, для удаления пыли и ворса",
+          price: 280,
+          icon: "pen-tool",
+        },
+        {
+          id: "t31",
+          name: "Отвёртка для швейной машины",
+          desc: "Комплект 3 шт., разные головки",
+          price: 420,
+          icon: "tool",
+        },
+        {
+          id: "t32",
+          name: "Прессовальная доска",
+          desc: "Портативная, 40x80 см, с покрытием",
+          price: 3600,
+          icon: "square",
+        },
+        {
+          id: "t33",
+          name: "Утюг промышленный",
+          desc: "Паровой, мощность 2000 Вт",
+          price: 4800,
+          icon: "circle",
+        },
+        {
+          id: "t34",
+          name: "Колодка для утюжки",
+          desc: "Деревянная, различные профили",
+          price: 1200,
+          icon: "square",
+        },
+        {
+          id: "t35",
+          name: "Подушка утюжная",
+          desc: "Силиконовая, для отпаривания деталей",
+          price: 890,
+          icon: "circle",
+        },
+        {
+          id: "t36",
+          name: "Пресс для склеивания",
+          desc: "Клипс, 30 см, для дублирования",
+          price: 1800,
+          icon: "square",
+        },
+        {
+          id: "t37",
+          name: "Клей-спрей для ткани",
+          desc: "200 мл, для временного скрепления",
+          price: 520,
+          icon: "droplet",
+        },
+        {
+          id: "t38",
+          name: "Дублирин плетневой",
+          desc: "Ширина 100 см, рулон, для подборта",
+          price: 420,
+          icon: "file",
+        },
+        {
+          id: "t39",
+          name: "Фетр шерстяной",
+          desc: "Чёрный, 100% шерсть, для прокладок",
+          price: 680,
+          icon: "square",
+        },
+        {
+          id: "t40",
+          name: "Кружево гипюр",
+          desc: "Белое, 30 см, для отделки",
+          price: 540,
+          icon: "square",
+        },
+      ];
+
+      const sketchSVGs = [
+        // Dress silhouette
+        `<svg viewBox="0 0 200 280" fill="none" stroke="#c4a882" stroke-width="1.5"><path d="M100 20 L100 60 M80 60 Q70 100 60 160 L50 260 L150 260 L140 160 Q130 100 120 60 Z" /><ellipse cx="100" cy="18" rx="12" ry="8"/><path d="M80 60 Q60 55 50 70 M120 60 Q140 55 150 70"/></svg>`,
+        // Blouse
+        `<svg viewBox="0 0 200 250" fill="none" stroke="#c4a882" stroke-width="1.5"><path d="M70 40 L70 200 L130 200 L130 40 M70 40 Q50 45 30 80 L50 90 L70 70 M130 40 Q150 45 170 80 L150 90 L130 70"/><line x1="100" y1="40" x2="100" y2="200"/><circle cx="100" cy="60" r="3"/><circle cx="100" cy="90" r="3"/><circle cx="100" cy="120" r="3"/></svg>`,
+        // Skirt
+        `<svg viewBox="0 0 200 250" fill="none" stroke="#c4a882" stroke-width="1.5"><path d="M60 30 L140 30 L140 40 Q145 140 160 230 L40 230 Q55 140 60 40 Z"/><line x1="100" y1="30" x2="100" y2="230" stroke-dasharray="4 6"/><path d="M60 30 Q100 20 140 30"/></svg>`,
+        // Coat
+        `<svg viewBox="0 0 200 280" fill="none" stroke="#c4a882" stroke-width="1.5"><path d="M70 30 L70 260 L40 260 L40 80 Q50 40 70 30 M130 30 L130 260 L160 260 L160 80 Q150 40 130 30"/><path d="M70 30 Q100 20 130 30"/><rect x="85" y="30" width="30" height="15" rx="3"/><line x1="100" y1="45" x2="100" y2="260"/><circle cx="100" cy="80" r="4"/><circle cx="100" cy="120" r="4"/><circle cx="100" cy="160" r="4"/></svg>`,
+        // Pants
+        `<svg viewBox="0 0 200 280" fill="none" stroke="#c4a882" stroke-width="1.5"><path d="M60 20 L140 20 L140 30 Q142 130 100 140 Q58 130 60 30 Z"/><path d="M100 140 L100 140 Q95 200 85 270 L60 270 Q65 200 100 140"/><path d="M100 140 Q105 200 115 270 L140 270 Q135 200 100 140"/></svg>`,
+        // Jacket
+        `<svg viewBox="0 0 200 260" fill="none" stroke="#c4a882" stroke-width="1.5"><path d="M70 30 L70 220 L130 220 L130 30 M70 30 Q50 35 30 70 L45 80 L70 55 M130 30 Q150 35 170 70 L155 80 L130 55"/><path d="M70 30 Q100 20 130 30"/><path d="M85 80 L85 220 M115 80 L115 220" stroke-dasharray="3 5"/><rect x="80" y="150" width="15" height="20" rx="2"/></svg>`,
+        // Corset
+        `<svg viewBox="0 0 200 250" fill="none" stroke="#c4a882" stroke-width="1.5"><path d="M65 30 Q55 80 50 130 Q55 180 65 220 L135 220 Q145 180 150 130 Q145 80 135 30 Z"/><line x1="100" y1="50" x2="100" y2="200"/><path d="M85 60 L100 70 L115 60 M85 90 L100 100 L115 90 M85 120 L100 130 L115 120 M85 150 L100 160 L115 150 M85 180 L100 190 L115 180"/></svg>`,
+        // Kimono
+        `<svg viewBox="0 0 200 270" fill="none" stroke="#c4a882" stroke-width="1.5"><path d="M100 20 L60 50 L30 50 L30 100 L60 80 L60 250 L140 250 L140 80 L170 100 L170 50 L140 50 L100 20"/><path d="M60 80 Q80 120 100 100 Q120 120 140 80"/><line x1="60" y1="160" x2="140" y2="160"/><rect x="70" y="155" width="60" height="10" rx="2"/></svg>`,
+      ];
+
+      // ====== CART STATE ======
+      let cart = [];
+
+      // ====== RENDER FUNCTIONS ======
+      function renderFabrics() {
+        const grid = document.getElementById("fabric-grid");
+        grid.innerHTML = fabrics
+          .map(
+            (f, i) => `
+    <div class="group rounded-lg overflow-hidden transition-transform hover:scale-[1.02]" style="background:#2d2d2d; border:1px solid rgba(196,168,130,0.1); animation: fadeUp 0.6s ease ${i * 0.1}s both;">
+      <div class="relative overflow-hidden flex items-center justify-center" style="height:220px; background:#1a1a1a;">
+        <img src="${f.img}" alt="${f.name}" loading="lazy" style="width:100%; height:100%; object-fit:cover;" onerror="this.style.background='linear-gradient(135deg, #4a4a4a 0%, #2a2a2a 100%)'; this.style.display='none';">
+        <div class="absolute top-3 right-3 px-3 py-1 rounded font-body text-xs font-semibold" style="background:rgba(26,26,26,0.85); color:#c4a882;">${f.price} с./${f.unit}</div>
+      </div>
+      <div class="p-5">
+        <h3 class="font-display text-lg font-bold mb-2">${f.name}</h3>
+        <p class="font-body text-xs opacity-50 leading-relaxed mb-4">${f.desc}</p>
+        <div class="flex gap-2">
+          <button onclick="addToCart('${f.id}','fabric')" class="flex-1 font-body text-xs py-2 rounded transition hover:opacity-80" style="background:#c4a882; color:#1a1a1a;">В корзину</button>
+          <button onclick="addToCart('${f.id}','fabric');openCart();" class="font-body text-xs px-3 py-2 rounded border transition hover:opacity-80" style="border-color:#a0522d; color:#a0522d;">Купить</button>
+        </div>
+      </div>
+    </div>
+  `,
+          )
+          .join("");
+      }
+
+      function renderThreads() {
+        const grid = document.getElementById("threads-grid");
+        grid.innerHTML = threads
+          .map(
+            (t, i) => `
+    <div class="p-5 rounded-lg transition-transform hover:scale-[1.05] flex flex-col h-full" style="background:#1a1a1a; border:1px solid rgba(196,168,130,0.1); animation: fadeUp 0.6s ease ${i * 0.06}s both;">
+      <div class="w-full h-24 rounded-md flex items-center justify-center mb-4 relative" style="background:${t.color || "#c4a882"}; opacity:0.9;">
+        <div class="absolute inset-0 rounded-md" style="background-image: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.1) 2px, rgba(255,255,255,0.1) 4px);"></div>
+      </div>
+      <h3 class="font-display text-sm font-bold mb-1 flex-grow">${t.name}</h3>
+      <p class="font-body text-xs opacity-40 mb-3 line-clamp-2">${t.desc}</p>
+      <div class="flex justify-between items-center pt-3" style="border-top:1px solid rgba(196,168,130,0.1);">
+        <span class="font-display font-bold text-sm" style="color:#c4a882;">${t.price}р.</span>
+        <button onclick="addToCart('${t.id}','thread')" class="font-body text-xs px-3 py-1 rounded transition hover:opacity-80" style="background:#a0522d; color:#f5f0e8;">Купить</button>
+      </div>
+    </div>
+  `,
+          )
+          .join("");
+      }
+
+      function renderTools() {
+        const grid = document.getElementById("tools-grid");
+        grid.innerHTML = tools
+          .map(
+            (t, i) => `
+    <div class="p-5 rounded-lg transition-transform hover:scale-[1.05] flex flex-col h-full" style="background:#1a1a1a; border:1px solid rgba(196,168,130,0.1); animation: fadeUp 0.6s ease ${i * 0.05}s both;">
+      <div class="w-full h-20 rounded-md flex items-center justify-center mb-4 relative" style="background:linear-gradient(135deg, rgba(196,168,130,0.2) 0%, rgba(160,82,45,0.2) 100%);">
+        <i data-lucide="${t.icon}" style="width:32px; height:32px; color:#c4a882; opacity:0.8;"></i>
+      </div>
+      <h3 class="font-display text-sm font-bold mb-1 flex-grow">${t.name}</h3>
+      <p class="font-body text-xs opacity-40 mb-3 line-clamp-2">${t.desc}</p>
+      <div class="flex justify-between items-center pt-3" style="border-top:1px solid rgba(196,168,130,0.1);">
+        <span class="font-display font-bold text-sm" style="color:#c4a882;">${t.price}р.</span>
+        <button onclick="addToCart('${t.id}','tool')" class="font-body text-xs px-3 py-1 rounded transition hover:opacity-80" style="background:#a0522d; color:#f5f0e8;">Купить</button>
+      </div>
+    </div>
+  `,
+          )
+          .join("");
+      }
+
+      function renderSketches() {
+        const gallery = document.getElementById("sketch-gallery");
+        const sketches = [
+          {
+            svg: `<svg viewBox="0 0 200 280" fill="none" stroke="#c4a882" stroke-width="1.5"><path d="M100 20 L100 60 M80 60 Q70 100 60 160 L50 260 L150 260 L140 160 Q130 100 120 60 Z" /><ellipse cx="100" cy="18" rx="12" ry="8"/><path d="M80 60 Q60 55 50 70 M120 60 Q140 55 150 70"/></svg>`,
+            label: "Платье",
+            category: "women",
+          },
+          {
+            svg: `<svg viewBox="0 0 200 250" fill="none" stroke="#c4a882" stroke-width="1.5"><path d="M70 40 L70 200 L130 200 L130 40 M70 40 Q50 45 30 80 L50 90 L70 70 M130 40 Q150 45 170 80 L150 90 L130 70"/><line x1="100" y1="40" x2="100" y2="200"/><circle cx="100" cy="60" r="3"/><circle cx="100" cy="90" r="3"/><circle cx="100" cy="120" r="3"/></svg>`,
+            label: "Блузка",
+            category: "women",
+          },
+          {
+            svg: `<svg viewBox="0 0 200 250" fill="none" stroke="#c4a882" stroke-width="1.5"><path d="M60 30 L140 30 L140 40 Q145 140 160 230 L40 230 Q55 140 60 40 Z"/><line x1="100" y1="30" x2="100" y2="230" stroke-dasharray="4 6"/><path d="M60 30 Q100 20 140 30"/></svg>`,
+            label: "Юбка",
+            category: "women",
+          },
+          {
+            svg: `<svg viewBox="0 0 200 280" fill="none" stroke="#c4a882" stroke-width="1.5"><path d="M70 30 L70 260 L40 260 L40 80 Q50 40 70 30 M130 30 L130 260 L160 260 L160 80 Q150 40 130 30"/><path d="M70 30 Q100 20 130 30"/><rect x="85" y="30" width="30" height="15" rx="3"/><line x1="100" y1="45" x2="100" y2="260"/><circle cx="100" cy="80" r="4"/><circle cx="100" cy="120" r="4"/><circle cx="100" cy="160" r="4"/></svg>`,
+            label: "Пальто",
+            category: "women",
+          },
+          {
+            svg: `<svg viewBox="0 0 200 280" fill="none" stroke="#c4a882" stroke-width="1.5"><path d="M60 20 L140 20 L140 30 Q142 130 100 140 Q58 130 60 30 Z"/><path d="M100 140 L100 140 Q95 200 85 270 L60 270 Q65 200 100 140"/><path d="M100 140 Q105 200 115 270 L140 270 Q135 200 100 140"/></svg>`,
+            label: "Брюки",
+            category: "men",
+          },
+          {
+            svg: `<svg viewBox="0 0 200 260" fill="none" stroke="#c4a882" stroke-width="1.5"><path d="M70 30 L70 220 L130 220 L130 30 M70 30 Q50 35 30 70 L45 80 L70 55 M130 30 Q150 35 170 70 L155 80 L130 55"/><path d="M70 30 Q100 20 130 30"/><path d="M85 80 L85 220 M115 80 L115 220" stroke-dasharray="3 5"/><rect x="80" y="150" width="15" height="20" rx="2"/></svg>`,
+            label: "Жакет",
+            category: "men",
+          },
+          {
+            svg: `<svg viewBox="0 0 200 250" fill="none" stroke="#c4a882" stroke-width="1.5"><path d="M65 30 Q55 80 50 130 Q55 180 65 220 L135 220 Q145 180 150 130 Q145 80 135 30 Z"/><line x1="100" y1="50" x2="100" y2="200"/><path d="M85 60 L100 70 L115 60 M85 90 L100 100 L115 90 M85 120 L100 130 L115 120 M85 150 L100 160 L115 150 M85 180 L100 190 L115 180"/></svg>`,
+            label: "Корсет",
+            category: "women",
+          },
+          {
+            svg: `<svg viewBox="0 0 200 270" fill="none" stroke="#c4a882" stroke-width="1.5"><path d="M100 20 L60 50 L30 50 L30 100 L60 80 L60 250 L140 250 L140 80 L170 100 L170 50 L140 50 L100 20"/><path d="M60 80 Q80 120 100 100 Q120 120 140 80"/><line x1="60" y1="160" x2="140" y2="160"/><rect x="70" y="155" width="60" height="10" rx="2"/></svg>`,
+            label: "Кимоно",
+            category: "women",
+          },
+          {
+            svg: `<svg viewBox="0 0 200 200" fill="none" stroke="#c4a882" stroke-width="1.5"><path d="M80 40 L120 40 L130 100 L120 160 L80 160 L70 100 Z"/><path d="M40 80 L70 100 M160 80 L130 100"/><circle cx="100" cy="60" r="6"/></svg>`,
+            label: "Рубашка",
+            category: "men",
+          },
+          {
+            svg: `<svg viewBox="0 0 200 200" fill="none" stroke="#c4a882" stroke-width="1.5"><path d="M50 50 Q100 40 150 50 Q160 120 100 180 Q40 120 50 50"/><circle cx="100" cy="65" r="8"/><line x1="100" y1="80" x2="100" y2="160"/></svg>`,
+            label: "Кофта",
+            category: "all",
+          },
+          {
+            svg: `<svg viewBox="0 0 200 180" fill="none" stroke="#c4a882" stroke-width="1.5"><path d="M60 60 L140 60 L150 120 L100 160 L50 120 Z"/><path d="M75 70 L70 100 M125 70 L130 100"/><circle cx="100" cy="75" r="4"/></svg>`,
+            label: "Жилет",
+            category: "men",
+          },
+          {
+            svg: `<svg viewBox="0 0 200 220" fill="none" stroke="#c4a882" stroke-width="1.5"><path d="M80 40 Q100 20 120 40 L130 160 L70 160 Z"/><path d="M75 50 L75 140 M125 50 L125 140"/><circle cx="100" cy="70" r="5"/></svg>`,
+            label: "Туника",
+            category: "women",
+          },
+          {
+            svg: `<svg viewBox="0 0 200 160" fill="none" stroke="#c4a882" stroke-width="1.5"><path d="M50 40 L150 40 L160 90 L100 140 L40 90 Z"/><path d="M70 55 L65 100 M130 55 L135 100"/></svg>`,
+            label: "Свитер",
+            category: "all",
+          },
+          {
+            svg: `<svg viewBox="0 0 200 200" fill="none" stroke="#c4a882" stroke-width="1.5"><circle cx="100" cy="50" r="20"/><path d="M85 70 L70 160 M115 70 L130 160"/><path d="M70 160 Q70 170 80 180 Q100 190 120 180 Q130 170 130 160"/></svg>`,
+            label: "Платье детское",
+            category: "kids",
+          },
+          {
+            svg: `<svg viewBox="0 0 200 200" fill="none" stroke="#c4a882" stroke-width="1.5"><path d="M70 50 L130 50 L135 130 L100 160 L65 130 Z"/><path d="M80 70 L75 130 M120 70 L125 130"/><circle cx="100" cy="65" r="3"/></svg>`,
+            label: "Сарафан",
+            category: "kids",
+          },
+          {
+            svg: `<svg viewBox="0 0 200 200" fill="none" stroke="#c4a882" stroke-width="1.5"><path d="M60 40 Q100 30 140 40 L140 100 Q130 150 100 170 Q70 150 60 100 Z"/><path d="M75 60 L70 130 M125 60 L130 130"/><circle cx="100" cy="55" r="4"/></svg>`,
+            label: "Худи детское",
+            category: "kids",
+          },
+          {
+            svg: `<svg viewBox="0 0 200 200" fill="none" stroke="#c4a882" stroke-width="1.5"><path d="M80 50 L120 50 L130 150 L70 150 Z"/><path d="M75 70 L70 145 M125 70 L130 145"/><circle cx="100" cy="60" r="3"/></svg>`,
+            label: "Летний комбинезон",
+            category: "kids",
+          },
+        ];
+
+        gallery.innerHTML = sketches
+          .map(
+            (s, i) => `
+    <div class="sketch-thumb rounded-lg p-4 flex flex-col items-center cursor-pointer transition" style="background:#2d2d2d; border:1px solid rgba(196,168,130,0.08); animation: fadeUp 0.5s ease ${i * 0.07}s both;" onclick="this.classList.toggle('ring-2'); this.style.borderColor=this.classList.contains('ring-2')?'#c4a882':'rgba(196,168,130,0.08)';" data-category="${s.category}">
+      <div style="width:120px; height:140px;" class="flex items-center justify-center">${s.svg}</div>
+      <p class="font-body text-xs opacity-60 mt-3 text-center font-medium">${s.label}</p>
+    </div>
+  `,
+          )
+          .join("");
+      }
+
+      let currentSketchFilter = "all";
+      function filterSketches(cat) {
+        currentSketchFilter = cat;
+        document.querySelectorAll(".sketch-filter").forEach((btn) => {
+          const isActive = btn.dataset.filter === cat;
+          btn.style.background = isActive ? "#c4a882" : "transparent";
+          btn.style.color = isActive ? "#1a1a1a" : "#c4a882";
+          btn.style.borderColor = isActive ? "transparent" : "#c4a882";
+        });
+        document.querySelectorAll(".sketch-thumb").forEach((thumb) => {
+          const isMatch =
+            cat === "all" ||
+            thumb.dataset.category === cat ||
+            thumb.dataset.category === "all";
+          thumb.style.display = isMatch ? "flex" : "none";
+        });
+      }
+
+      // ====== CART ======
+      function addToCart(id, type) {
+        let item;
+        if (type === "fabric") {
+          item = fabrics.find((f) => f.id === id);
+        } else if (type === "thread") {
+          item = threads.find((t) => t.id === id);
+        } else if (type === "tool") {
+          item = tools.find((t) => t.id === id);
+        }
+        if (!item) return;
+        const existing = cart.find((c) => c.id === id);
+        if (existing) {
+          existing.qty++;
+        } else {
+          cart.push({ ...item, qty: 1, type });
+        }
+        updateCartUI();
+        showToast(`${item.name} добавлен в корзину`);
+      }
+
+      function removeFromCart(id) {
+        cart = cart.filter((c) => c.id !== id);
+        updateCartUI();
+        renderCartModal();
+      }
+
+      function updateCartUI() {
+        const count = cart.reduce((s, c) => s + c.qty, 0);
+        const el = document.getElementById("cart-count");
+        const elM = document.getElementById("cart-count-mobile");
+        if (count > 0) {
+          el.style.display = "flex";
+          el.textContent = count;
+        } else {
+          el.style.display = "none";
+        }
+        elM.textContent = count;
+      }
+
+      function renderCartModal() {
+        const items = document.getElementById("cart-items");
+        const empty = document.getElementById("cart-empty");
+        const footer = document.getElementById("cart-footer");
+        if (cart.length === 0) {
+          items.innerHTML = "";
+          empty.style.display = "block";
+          footer.style.display = "none";
+          return;
+        }
+        empty.style.display = "none";
+        footer.style.display = "block";
+        items.innerHTML = cart
+          .map(
+            (c) => `
+    <div class="flex justify-between items-center py-3" style="border-bottom:1px solid rgba(196,168,130,0.1);">
+      <div>
+        <p class="font-body text-sm font-medium">${c.name}</p>
+        <p class="font-body text-xs opacity-40">${c.qty} x ${c.price} с.</p>
+      </div>
+      <div class="flex items-center gap-3">
+        <span class="font-display font-bold text-sm" style="color:#c4a882;">${(c.qty * c.price).toLocaleString("ru-RU")} с.</span>
+        <button onclick="removeFromCart('${c.id}')" aria-label="Удалить" class="opacity-40 hover:opacity-100 transition"><i data-lucide="x" style="width:16px;height:16px;"></i></button>
+      </div>
+    </div>
+  `,
+          )
+          .join("");
+        document.getElementById("cart-total").textContent =
+          cart
+            .reduce((s, c) => s + c.qty * c.price, 0)
+            .toLocaleString("ru-RU") + " с.";
+        lucide.createIcons();
+      }
+
+      function openCart() {
+        document.getElementById("cart-modal").classList.add("active");
+        renderCartModal();
+      }
+      function closeCart() {
+        document.getElementById("cart-modal").classList.remove("active");
+      }
+
+      function checkout(type) {
+        const label = type === "delivery" ? "доставкой" : "самовывозом";
+        showToast(`Демо-заказ с ${label} оформлен!`);
+        cart = [];
+        updateCartUI();
+        closeCart();
+      }
+
+      // ====== DRAWING CANVAS ======
+      let drawing = false,
+        currentTool = "pen";
+      const canvas = document.getElementById("sketch-canvas");
+      const ctx = canvas.getContext("2d");
+
+      function resizeCanvas() {
+        const rect = canvas.getBoundingClientRect();
+        const ratio = window.devicePixelRatio || 1;
+        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        canvas.width = rect.width * ratio;
+        canvas.height = Math.min(500, rect.height) * ratio;
+        ctx.scale(ratio, ratio);
+        ctx.putImageData(imgData, 0, 0);
+      }
+
+      function getPos(e) {
+        const rect = canvas.getBoundingClientRect();
+        const t = e.touches ? e.touches[0] : e;
+        return { x: t.clientX - rect.left, y: t.clientY - rect.top };
+      }
+
+      canvas.addEventListener("mousedown", (e) => {
+        drawing = true;
+        ctx.beginPath();
+        const p = getPos(e);
+        ctx.moveTo(p.x, p.y);
+      });
+      canvas.addEventListener("mousemove", (e) => {
+        if (!drawing) return;
+        draw(e);
+      });
+      canvas.addEventListener("mouseup", () => (drawing = false));
+      canvas.addEventListener("mouseleave", () => (drawing = false));
+      canvas.addEventListener(
+        "touchstart",
+        (e) => {
+          e.preventDefault();
+          drawing = true;
+          ctx.beginPath();
+          const p = getPos(e);
+          ctx.moveTo(p.x, p.y);
+        },
+        { passive: false },
+      );
+      canvas.addEventListener(
+        "touchmove",
+        (e) => {
+          e.preventDefault();
+          if (!drawing) return;
+          draw(e);
+        },
+        { passive: false },
+      );
+      canvas.addEventListener("touchend", () => (drawing = false));
+
+      function draw(e) {
+        const p = getPos(e);
+        const size = document.getElementById("brush-size").value;
+        ctx.lineWidth = size;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        if (currentTool === "eraser") {
+          ctx.globalCompositeOperation = "destination-out";
+          ctx.strokeStyle = "rgba(0,0,0,1)";
+        } else {
+          ctx.globalCompositeOperation = "source-over";
+          ctx.strokeStyle = document.getElementById("brush-color").value;
+        }
+        ctx.lineTo(p.x, p.y);
+        ctx.stroke();
+      }
+
+      function setTool(t) {
+        currentTool = t;
+        document.getElementById("btn-pen").style.background =
+          t === "pen" ? "#c4a882" : "transparent";
+        document.getElementById("btn-pen").style.color =
+          t === "pen" ? "#1a1a1a" : "#c4a882";
+        document.getElementById("btn-pen").style.border =
+          t === "pen" ? "none" : "1px solid #c4a882";
+        document.getElementById("btn-eraser").style.background =
+          t === "eraser" ? "#c4a882" : "transparent";
+        document.getElementById("btn-eraser").style.color =
+          t === "eraser" ? "#1a1a1a" : "#c4a882";
+        document.getElementById("btn-eraser").style.border =
+          t === "eraser" ? "none" : "1px solid #c4a882";
+      }
+
+      function clearCanvas() {
+        ctx.globalCompositeOperation = "source-over";
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+
+      function downloadCanvas() {
+        const link = document.createElement("a");
+        link.download = "my-sketch.png";
+        link.href = canvas.toDataURL();
+        link.click();
+      }
+
+      // ====== MOBILE NAV ======
+      function toggleMobile() {
+        document.getElementById("mobile-menu").classList.toggle("open");
+      }
+      function closeMobile() {
+        document.getElementById("mobile-menu").classList.remove("open");
+      }
+
+      // ====== TOAST ======
+      function showToast(msg) {
+        const t = document.getElementById("toast");
+        t.textContent = msg;
+        t.classList.add("show");
+        setTimeout(() => t.classList.remove("show"), 2500);
+      }
+
+      // ====== INIT ======
+      renderFabrics();
+      renderThreads();
+      renderTools();
+      renderSketches();
+      lucide.createIcons();
+
+      // ====== ELEMENT SDK ======
+      const defaultConfig = {
+        brand_name: "STITCH",
+        hero_title: "Fabric Your Vision",
+        hero_subtitle: "Textile design studio",
+        about_text:
+          "Мы создаём уникальные текстильные решения, сочетая традиции ручного шитья с современным дизайном. Каждое изделие — произведение искусства.",
+        address_text: "г. Москва, ул. Тверская, д. 15, оф. 301",
+        phone_text: "+7 (495) 123-45-67",
+        email_text: "hello@atelier-noir.ru",
+        background_color: "#1a1a1a",
+        accent_color: "#c4a882",
+        text_color: "#f5f0e8",
+        action_color: "#a0522d",
+        surface_color: "#2d2d2d",
+        font_family: "Playfair Display",
+        font_size: 16,
+      };
+
+      function applyConfig(config) {
+        const c = { ...defaultConfig, ...config };
+        // Brand
+        document.getElementById("nav-brand").textContent = c.brand_name;
+        document.getElementById("footer-brand").textContent = c.brand_name;
+        // Hero
+        const heroTitle = document.getElementById("hero-title");
+        const parts = c.hero_title.split(" ");
+        if (parts.length > 1) {
+          heroTitle.innerHTML =
+            parts.slice(0, -1).join(" ") +
+            '<br><span style="color:' +
+            c.accent_color +
+            '; font-style:italic;">' +
+            parts[parts.length - 1] +
+            "</span>";
+        } else {
+          heroTitle.textContent = c.hero_title;
+        }
+        document.getElementById("hero-sub").textContent = c.hero_subtitle;
+        document.getElementById("about-text").textContent = c.about_text;
+        // Contact
+        document.getElementById("address-display").textContent = c.address_text;
+        document.getElementById("phone-display").textContent = c.phone_text;
+        document.getElementById("email-display").textContent = c.email_text;
+        document.getElementById("footer-phone").textContent = c.phone_text;
+        document.getElementById("footer-email").textContent = c.email_text;
+        document.getElementById("footer-address").textContent = c.address_text;
+        // Colors
+        document.getElementById("app-wrapper").style.backgroundColor =
+          c.background_color;
+        document.getElementById("app-wrapper").style.color = c.text_color;
+        // Font
+        const ff = c.font_family + ", Georgia, serif";
+        document
+          .querySelectorAll(".font-display")
+          .forEach((el) => (el.style.fontFamily = ff));
+        // Font size
+        const bs = c.font_size;
+        document.getElementById("about-text").style.fontSize = bs + "px";
+      }
+
+      if (window.elementSdk) {
+        window.elementSdk.init({
+          defaultConfig,
+          onConfigChange: async (config) => applyConfig(config),
+          mapToCapabilities: (config) => ({
+            recolorables: [
+              {
+                get: () =>
+                  config.background_color || defaultConfig.background_color,
+                set: (v) => {
+                  config.background_color = v;
+                  window.elementSdk.setConfig({ background_color: v });
+                },
+              },
+              {
+                get: () => config.surface_color || defaultConfig.surface_color,
+                set: (v) => {
+                  config.surface_color = v;
+                  window.elementSdk.setConfig({ surface_color: v });
+                },
+              },
+              {
+                get: () => config.text_color || defaultConfig.text_color,
+                set: (v) => {
+                  config.text_color = v;
+                  window.elementSdk.setConfig({ text_color: v });
+                },
+              },
+              {
+                get: () => config.accent_color || defaultConfig.accent_color,
+                set: (v) => {
+                  config.accent_color = v;
+                  window.elementSdk.setConfig({ accent_color: v });
+                },
+              },
+              {
+                get: () => config.action_color || defaultConfig.action_color,
+                set: (v) => {
+                  config.action_color = v;
+                  window.elementSdk.setConfig({ action_color: v });
+                },
+              },
+            ],
+            borderables: [],
+            fontEditable: {
+              get: () => config.font_family || defaultConfig.font_family,
+              set: (v) => {
+                config.font_family = v;
+                window.elementSdk.setConfig({ font_family: v });
+              },
+            },
+            fontSizeable: {
+              get: () => config.font_size || defaultConfig.font_size,
+              set: (v) => {
+                config.font_size = v;
+                window.elementSdk.setConfig({ font_size: v });
+              },
+            },
+          }),
+          mapToEditPanelValues: (config) =>
+            new Map([
+              ["brand_name", config.brand_name || defaultConfig.brand_name],
+              ["hero_title", config.hero_title || defaultConfig.hero_title],
+              [
+                "hero_subtitle",
+                config.hero_subtitle || defaultConfig.hero_subtitle,
+              ],
+              ["about_text", config.about_text || defaultConfig.about_text],
+              [
+                "address_text",
+                config.address_text || defaultConfig.address_text,
+              ],
+              ["phone_text", config.phone_text || defaultConfig.phone_text],
+              ["email_text", config.email_text || defaultConfig.email_text],
+            ]),
+        });
+      }
+    </script>
+    <script>
+      (function () {
+        function c() {
+          var b = a.contentDocument || a.contentWindow.document;
+          if (b) {
+            var d = b.createElement("script");
+            d.innerHTML =
+              "window.__CF$cv$params={r:'9ea0246950734637',t:'MTc3NTgwNzIzNC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";
+            b.getElementsByTagName("head")[0].appendChild(d);
+          }
+        }
+        if (document.body) {
+          var a = document.createElement("iframe");
+          a.height = 1;
+          a.width = 1;
+          a.style.position = "absolute";
+          a.style.top = 0;
+          a.style.left = 0;
+          a.style.border = "none";
+          a.style.visibility = "hidden";
+          document.body.appendChild(a);
+          if ("loading" !== document.readyState) c();
+          else if (window.addEventListener)
+            document.addEventListener("DOMContentLoaded", c);
+          else {
+            var e = document.onreadystatechange || function () {};
+            document.onreadystatechange = function (b) {
+              e(b);
+              "loading" !== document.readyState &&
+                ((document.onreadystatechange = e), c());
+            };
+          }
+        }
+      })();
+    </script>
+  </body>
+</html>
